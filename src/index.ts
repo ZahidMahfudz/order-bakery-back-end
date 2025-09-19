@@ -4,6 +4,7 @@ import { conncetDB } from "./config/db";
 import logger from "./utils/logger";
 import { requestLogger } from "./middleware/loggerMiddleware";
 import authRoutes from "./routes/authRoutes";
+import cookieParser from "cookie-parser";
 
 const app = express();
 const PORT = config.port
@@ -12,6 +13,7 @@ const NODE_ENV = config.env
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser())
 
 //routing
 app.use("/auth", authRoutes);

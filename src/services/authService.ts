@@ -1,11 +1,20 @@
 import { PrismaClient } from "@prisma/client";
 import { ILoginUser, ILoginUserResponse, InterfaceUser, IRegisterUser, IRegisterUserResponse } from "../interfaces/user";
 import bcrypt from "bcrypt";
-import { generateIdUser } from "../utils/idGenerator";
+import { generateIdRefreshToken, generateIdUser } from "../utils/idGenerator";
 import logger from "../utils/logger";
-import { promises } from "node:dns";
+import jwt, { Secret, SignOptions } from 'jsonwebtoken';
+import { hashToken, generateToken } from "../utils/hash";
+import { generateAccessToken, verifyAccessToken, generateRefreshToken } from "../utils/jwt";
+import { ref } from "process";
 
 const prisma = new PrismaClient();
+
+// 🔑 ambil secret & expiry dari .env
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET as string;
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET as string;
+const ACCESS_TOKEN_EXPIRES_IN = (process.env.ACCESS_TOKEN_EXPIRY || "15m") as SignOptions["expiresIn"];
+const REFRESH_TOKEN_EXPIRES_IN = (process.env.REFRESH_TOKEN_EXPIRY || "7d") as SignOptions["expiresIn"];
 
 export async function register(userData: IRegisterUser): Promise<IRegisterUserResponse> {
     logger.debug(`Memeriksa apakah email ${userData.email} sudah terdaftar`);
@@ -81,16 +90,39 @@ export async function login(loginData: ILoginUser): Promise<ILoginUserResponse> 
     }
     logger.debug(`compare pasword cocok`)
 
+    logger.debug(`membuat payload untuk token`)
+    const payload = { 
+        id_user: user.id_user,
+        name: user.name, 
+        email: user.email, 
+        role: user.role
+    };
+    logger.debug(`payload token: ${JSON.stringify(payload)}`)
+
+    logger.debug(`melakukan generate access token & refresh token`)
+    const accessToken = generateAccessToken({ payload });
+    const refreshToken = generateRefreshToken({ payload });
+    logger.debug(`access token: ${accessToken}`)
+    logger.debug(`refresh token: ${refreshToken}`)
+
+    logger.debug(`menyimpan refresh token ke database`)
+    logger.debug(`menjalankan query prisma.refreshToken.create()`)
+    await prisma.refreshToken.create({
+        data: {
+            id_refresh_token: generateIdRefreshToken(),
+            tokenHash: refreshToken, // Simpan token asli untuk demo, sebaiknya hash sebelum simpan
+            userId: user.id_user,
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000), // Sesuaikan dengan format expiry
+        }
+    })
+    logger.debug(`refresh token berhasil disimpan ke database`)
+
     // Token masih kosong sesuai permintaan
     logger.debug(`melakukan format data menjadi interface ILoginUserResponse`)
     const userData: ILoginUserResponse = {
-        user: {
-            id_user: user.id_user,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-        },
-        token: "",
+        user: payload,
+        AccessToken: accessToken,
+        RefreshToken: refreshToken
     };
 
     logger.debug(`mengirimkan data user dengan token ke controller dengan format interface ILoginUserResponse`)

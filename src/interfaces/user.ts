@@ -17,7 +17,8 @@ export type IDataUser = Pick<InterfaceUser, 'id_user'|'name'|'email'|'role'>;
 
 export interface ILoginUserResponse {
     user : IDataUser;
-    token : string
+    AccessToken : string;
+    RefreshToken : string;
 }
 
 export interface IRegisterUserResponse {
