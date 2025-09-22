@@ -9,4 +9,8 @@ const router = Router();
 router.post("/register", requestLogger, validator.registerValidation, validate, controller.register );
 router.post("/login", requestLogger, validator.loginValidation, validate, controller.login );
 
+router.post("/refresh-token", requestLogger, controller.refreshToken)
+
+router.post("/logout", requestLogger, controller.logout)
+
 export default router;
